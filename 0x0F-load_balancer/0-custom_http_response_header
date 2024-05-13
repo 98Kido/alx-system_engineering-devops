@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Configures Nginx with a custom header for both web-01 and web-02 when an http 
+request is sent 
+# The name of the custom HTTP header must be X-Served-By
+# The value of the custom HTTP header must be the hostname of the server Nginx is 
+running on(either web-01 or web-02)
+# colors
+Blue=’\e[1;34m’
+Brown=’\e[0;33m’
+Green=’\e[1;32m’
+Reset=’\033[0m’
+Echo -e “${blue}Updating and doing some minor checks…${reset}\n”
+Function install() {
+Command -v “$1” &> /dev/null
+#shellcheck disable=SC2181
+If [ $? -ne 0 ]; then
+Echo -e “ Installing: ${brown}$1${reset}\n”
+Sudo apt-get update -y -qq && \
+Sudo apt-get install -y “$1” -qq
+Echo -e “\n”
+Else
+Echo -e “ ${green}${1} is already installed.${reset}\n”
+Fi
+}
+Install nginx #install nginx
+Echo -e “\n${blue}Setting up some minor stuff.${reset}\n”
+# allowing nginx on firewall
+Sudo ufw allow ‘Nginx HTTP’
+# Give the user ownership to website files for easy editing
+If [ -d “/var/www” ]; then
+Sudo chown -R “$USER”:”$USER” /var/www
+Sudo chmod -R 755 /var/www
+Else
+Sudo mkdir -p /var/www
+Sudo chown -R “$USER”:”$USER” /var/www
+Sudo chmod -R 755 /var/www
+Fi
+# create directories if not present
+For dir in /var/www/{html,error}; do
+If ! [ -d “$dir” ]; then
+Mkdir -p “$dir”
+Fi
+Done
+# creating new index
+Echo “Hello World!” > /var/www/html/index.html
+# create new error page
+Echo “Ceci n’est pas une page” > /var/www/html/error_404.html
+# backup default server config file
+Sudo cp /etc/nginx/sites-enabled/default nginx-sites-enabled_default.backup
+Server_config=\
+“server {
+Listen 80 default_server;
+Listen [::]:80 default_server;
+Root /var/www/html;
+Index index.html index.htm index.nginx-debian.html
+Server_name_;
+Add_header X-Served-By \$hostname;
+Location / {
+Try_files \$uri \$uri/ =404;
+}
+If (\$request_filename ~ redirect_me){
+Rewrite ^ https://th3-gr00t.tk/ permanent;
+}
+Error_page 404 /error_404.html;
+Location = /error_404.html {
+Internal;
+}
+}”
+#shellcheck disable=SC2154
+Echo “$server_config” | sudo dd status=none of=/etc/nginx/sites-enabled/default
+If [ “$(pgrep -c nginx)” -le 0 ]; then
+Sudo service nginx start
+Else
+Sudo service nginx restart
+Fi

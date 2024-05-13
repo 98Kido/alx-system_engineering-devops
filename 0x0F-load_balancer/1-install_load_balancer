@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# install load balancer
+# colors
+Blue=’\e[1;34m’
+Brown=’\e[0;33m’
+Green=’\e[1;32m’
+Reset=’\033[0m’
+Echo -e “${blue}Updating and doing some minor checks…${reset}\n”
+Function install() {
+Command -v “$1” &> /dev/null
+#shellcheck disable=SC2181
+If [ $? -ne 0 ]; then
+Echo -e “ Installing: ${brown}$1${reset}\n”
+Sudo apt-get update -y -qq && \
+Sudo apt-get install -y “$1” -qq
+Echo -e “\n”
+Else
+Echo -e “ ${green}${1} is already installed.${reset}\n”
+Fi
+}
+Install haproxy #install haproxy
+Echo -e “\n${blue}Setting up some minor stuff.${reset}\n”
+# backup default server config file
+Sudo cp /etc/haproxy/haproxy.cfg haproxy_default.backup
+Server_config=\
+“
+Defaults
+ Mode http
+ Timeout client 15s
+ Timeout connect 10s
+ Timeout server 15s
+ Timeout http-request 10s
+Frontend th3gr00t-tech-frontend
+ Bind *:80
+ Default_backend th3gr00t-tech-backend
+Backend th3gr00t-tech-backend
+ Balance roundrobin
+ Server 453-web-01 52.73.34.195 check
+ Server 453-web-02 54.208.160.246 check
+“
+# shellcheck disable=SC2154
+Echo “$server_config” | sudo dd status=none of=/etc/haproxy/haproxy.cfg
+# enable haproxy to be started by init script
+Echo “ENABLED=1” | sudo dd status=none of=/etc/default/haproxy
+If [ “$(pgrep -c haproxy)” -le 0 ]; then
+Sudo service haproxy start
+Else
+Sudo service haproxy restart
+Fi
