@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
-that uses ssh to connect to your server
+#uses ssh to connect to your server
 
+#SSH connection command single-character flags
 ssh ubuntu -i ~/.ssh/school
